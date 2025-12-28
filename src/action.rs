@@ -331,19 +331,19 @@ pub fn toggle(application: &Application) -> Result<()> {
 
     let (matched_window, matched_window_workspace) = matched.unwrap();
 
-    let focused_window =
-        get_focused_window(&windows).ok_or_else(|| miette!("No focused window found"))?;
-    if focused_window.id == matched_window.id {
-        // Matched window is focused, hide it
-        let hidden_workspace = get_hidden_workspace(&workspaces)?;
-        let _ = socket
-            .send(Request::Action(Action::MoveWindowToWorkspace {
-                window_id: Some(matched_window.id),
-                reference: WorkspaceReferenceArg::Id(hidden_workspace.id),
-                focus: false,
-            }))
-            .into_diagnostic()?;
-        return Ok(());
+    if let Some(focused_window) = get_focused_window(&windows) {
+        if focused_window.id == matched_window.id {
+            // Matched window is focused, hide it
+            let hidden_workspace = get_hidden_workspace(&workspaces)?;
+            let _ = socket
+                .send(Request::Action(Action::MoveWindowToWorkspace {
+                    window_id: Some(matched_window.id),
+                    reference: WorkspaceReferenceArg::Id(hidden_workspace.id),
+                    focus: false,
+                }))
+                .into_diagnostic()?;
+            return Ok(());
+        }
     }
 
     let focused_workspace = get_focused_workspace(&workspaces)?;
