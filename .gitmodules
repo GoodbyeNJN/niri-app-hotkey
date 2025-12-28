@@ -1,0 +1,3 @@
+[submodule "niri-scratchpad-rs"]
+	path = niri-scratchpad-rs
+	url = git@github.com:argosnothing/niri-scratchpad-rs.git
