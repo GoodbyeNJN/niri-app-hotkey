@@ -1,0 +1,51 @@
+name: Release New Version
+
+permissions:
+  id-token: write
+  contents: write
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*.*.*"
+
+env:
+  PROJECT_NAME: niri-app-hotkey
+  TARGET_ARCH: x86_64
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup Nodejs
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build binary
+        run: |
+          docker pull messense/rust-musl-cross:$TARGET_ARCH-musl && \
+          docker run --rm -v "$(pwd)":/home/rust/src messense/rust-musl-cross:$TARGET_ARCH-musl cargo build --release && \
+          tar -czf $PROJECT_NAME-$TARGET_ARCH.tar.gz -C target/$TARGET_ARCH-unknown-linux-musl/release $PROJECT_NAME
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ env.PROJECT_NAME }}-${{ env.TARGET_ARCH }}.tar.gz
+
+      - name: Generate changelog
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        run: |
+          npx changelogithub
