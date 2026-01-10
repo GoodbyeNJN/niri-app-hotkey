@@ -18,6 +18,18 @@ workspace "stash" {
 
 Make sure your Niri installation includes the changes from PR #2997 and that you have configured a hidden workspace before using niri-app-hotkey.
 
+### Niri Installation with PR #2997
+
+If you're using Arch Linux, you can directly install Niri with PR #2997 using the AUR package from [niri-git](https://github.com/GoodbyeNJN/niri-git):
+
+```bash
+git clone https://github.com/GoodbyeNJN/niri-git.git
+cd niri-git
+makepkg -si
+```
+
+This AUR package includes the necessary changes from PR #2997, ensuring compatibility with niri-app-hotkey.
+
 ## Features
 
 - **Launch applications** - Start applications using configured spawn commands
