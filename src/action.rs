@@ -50,14 +50,14 @@ pub fn launch(application: &Application) -> Result<()> {
         .stdout(Stdio::null())
         .stderr(Stdio::null());
 
-    let mut child = process
+    let _ = process
         .spawn()
         .into_diagnostic()
         .context("Failed to spawn process")?;
-    child
-        .wait()
-        .into_diagnostic()
-        .context("Failed to wait for spawned process")?;
+    // child
+    //     .wait()
+    //     .into_diagnostic()
+    //     .context("Failed to wait for spawned process")?;
 
     Ok(())
 }
