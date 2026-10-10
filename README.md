@@ -1,6 +1,6 @@
 # niri-app-hotkey
 
-A command-line tool for managing application windows in the [Niri](https://github.com/YaLTeR/niri) Wayland compositor. This tool allows you to launch, show, hide, activate, and toggle application windows using hotkey bindings or script integration.
+A command-line tool for managing application windows in the [Niri](https://github.com/YaLTeR/niri) Wayland compositor. This tool allows you to launch, show, hide, focus, and toggle application windows using hotkey bindings or script integration.
 
 ## ⚠️ Important Requirement
 
@@ -33,9 +33,9 @@ This AUR package includes the necessary changes from PR #2997, ensuring compatib
 ## Features
 
 - **Launch applications** - Start applications using configured spawn commands
-- **Window management** - Show, hide, activate, or intelligently toggle application windows
+- **Window management** - Show, hide, focus, or intelligently toggle application windows
 - **Flexible matching** - Match windows by application ID and window title (compatible with Niri's window rules)
-- **Window selection** - Select specific windows by index when multiple windows match
+- **Window selection** - Select a specific window by index and configurable sort order when multiple windows match
 - **Exclusion rules** - Exclude specific windows from matching criteria
 - **Configuration-based** - Easy configuration using KDL configuration language
 - **Default configuration path** - Automatically reads from `$XDG_CONFIG_HOME/niri/niri-app-hotkey.kdl`
@@ -84,7 +84,7 @@ niri-app-hotkey launch "Telegram"
 
 #### `show <APP_NAME>`
 
-Shows the window(s) of the specified application that match the configured rules.
+Moves the matching window to the currently focused workspace if necessary, then focuses it.
 
 ```bash
 niri-app-hotkey show "Firefox"
@@ -92,28 +92,27 @@ niri-app-hotkey show "Firefox"
 
 #### `hide <APP_NAME>`
 
-Hides the window(s) of the specified application that match the configured rules.
+Moves the matching focused window to the hidden workspace. The matching window must already be focused.
 
 ```bash
 niri-app-hotkey hide "Firefox"
 ```
 
-#### `activate <APP_NAME>`
+#### `focus <APP_NAME>`
 
-Activates (brings to focus) the window(s) of the specified application that match the configured rules.
+Focuses the matching window if it is on the currently focused workspace. Unlike `show`, this command does not move a window between workspaces.
 
 ```bash
-niri-app-hotkey activate "Firefox"
+niri-app-hotkey focus "Firefox"
 ```
 
 #### `toggle <APP_NAME>`
 
 Intelligently toggles the specified application with the following behavior:
 
-1. **No matching windows** - Launches the application using the configured spawn command
-2. **Hidden matching window** - Shows the window
-3. **Visible but inactive window** - Activates (brings into focus) the window
-4. **Active window** - Hides the window
+1. **No matching window** - Launches the application using its configured spawn command
+2. **Matching window is focused** - Hides it by moving it to the hidden workspace
+3. **Matching window is not focused** - Moves it to the currently focused workspace if necessary, then focuses it
 
 This command is ideal for binding to hotkeys, providing a single-key control for toggling application visibility.
 
@@ -134,15 +133,14 @@ $XDG_CONFIG_HOME/niri/niri-app-hotkey.kdl
 Each application configuration block contains:
 
 - **name** - The unique identifier for the application (used in commands)
-- **spawn** or **spawn-sh** - Command to launch the application (at least one is required; use `spawn` for direct execution or `spawn-sh` for shell command execution)
-- **match** - Rules to identify windows belonging to this application
-- **exclude** - Rules to exclude specific windows from matching
+- **spawn** or **spawn-sh** - Optional command to launch the application (required if an action needs to launch it)
+- **window** - Optional window-matching rules, including `match`, `exclude`, and `select`
 
 ### Spawn Command
 
 The `spawn` directive specifies the command to execute when launching the application. It accepts a list of arguments where the first element is the command name and subsequent elements are arguments. This is the recommended method for launching applications directly without shell interpretation.
 
-The behavior follows the same logic as [Niri's spawn action](https://yalter.github.io/niri/Configuration%3A-Key-Bindings.html#spawn): the command is executed with the specified arguments, with support for path expansion (e.g., `~` for home directory).
+The command is executed with the specified arguments. A leading `~` in the executable path is expanded to the home directory.
 
 Examples:
 
@@ -178,18 +176,18 @@ spawn-sh "DISPLAY=:1 some-app"
 
 ### Match and Exclude Rules
 
-The `match` directives identify which windows should be targeted by the application. The `exclude` directives explicitly exclude windows from matching. The matching behavior for `app-id` and `title` follows the same logic as [Niri's window rules](https://yalter.github.io/niri/Configuration%3A-Window-Rules.html):
+Window rules are declared inside a `window` block. The `match` directives identify candidate windows, and `exclude` directives remove candidates from consideration. The matching behavior for `app-id` and `title` follows the same logic as [Niri's window rules](https://yalter.github.io/niri/Configuration%3A-Window-Rules.html):
 
-- A window must match **any** of the `match` directives (OR logic)
-- A window must **not** match **any** of the `exclude` directives
+- A window must match **at least one** `match` directive (OR logic across directives)
+- Within one directive, all specified properties must match (AND logic)
+- A window is excluded if it matches **any** `exclude` directive
 
 Supported matchers:
 
-| Property | Type   | Description                                                           | Notes                |
-| -------- | ------ | --------------------------------------------------------------------- | -------------------- |
-| `app-id` | Regex  | Match windows by application ID                                       | Same as Niri         |
-| `title`  | Regex  | Match windows by window title                                         | Same as Niri         |
-| `index`  | Number | Select the N-th window from the matched candidates (0-based indexing) | niri-app-hotkey only |
+| Property | Type  | Description                    | Notes        |
+| -------- | ----- | ------------------------------ | ------------ |
+| `app-id` | Regex | Match windows by application ID | Same as Niri |
+| `title`  | Regex | Match windows by window title   | Same as Niri |
 
 Both `app-id` and `title` support regular expressions. You can find the app-id and title of a window using:
 
@@ -199,34 +197,36 @@ niri msg pick-window
 
 Then click on the window you want to match.
 
-#### Window Selection with Index
+#### Selecting a Window
 
-When multiple windows match your `match` and `exclude` rules, the `index` property allows you to select a specific window instead of operating on all matching windows:
+Each action operates on one matching window. If more than one window matches, specify a `select` block to choose a target with a zero-based `index`:
 
-1. The tool first filters all windows using the `match` and `exclude` rules, creating a candidate window list
-2. The candidate list is then sorted by process ID (PID), with lower PIDs appearing first
-3. If an `index` is specified, only the window at that position in the sorted list is operated on
-4. If no `index` is specified, all matching windows are operated on
+1. The tool filters windows using the `match` and `exclude` rules.
+2. It sorts the candidates by the keys listed in `order-by`, in the listed priority order.
+3. It selects the window at the specified zero-based `index`.
 
-This is useful when an application has multiple windows and you want to target a specific one:
+If there is only one matching window, it is selected automatically. If multiple windows match and no `select` is configured, the command reports an error. Supported `order-by` keys are `id`, `title`, `app-id`, `pid`, and `workspace-id`. With no `order-by`, candidates use ascending Niri window ID order.
 
 ```kdl
-// Operate on all matching Firefox windows
-application "Firefox-All" {
-    spawn "firefox"
-    match app-id="firefox"
-}
-
-// Operate only on the first Firefox window (by PID)
 application "Firefox-Primary" {
     spawn "firefox"
-    match app-id="firefox" index=0
+    window {
+        match app-id="firefox"
+        select index=0 {
+            order-by pid
+        }
+    }
 }
 
-// Operate only on the second Firefox window (by PID)
+// Operate on the second Firefox window (by PID)
 application "Firefox-Secondary" {
     spawn "firefox"
-    match app-id="firefox" index=1
+    window {
+        match app-id="firefox"
+        select index=1 {
+            order-by pid
+        }
+    }
 }
 ```
 
@@ -237,7 +237,9 @@ application "Firefox-Secondary" {
 ```kdl
 application "Firefox" {
     spawn "gtk-launch" "firefox"
-    match app-id="firefox"
+    window {
+        match app-id="firefox"
+    }
 }
 ```
 
@@ -246,7 +248,9 @@ application "Firefox" {
 ```kdl
 application "IDE" {
     spawn "code"
-    match app-id="code" title="Visual Studio Code"
+    window {
+        match app-id="code" title="Visual Studio Code"
+    }
 }
 ```
 
@@ -255,7 +259,12 @@ application "IDE" {
 ```kdl
 application "Terminal-2" {
     spawn "gnome-terminal"
-    match app-id="org.gnome.Terminal" index=1
+    window {
+        match app-id="org.gnome.Terminal"
+        select index=1 {
+            order-by pid
+        }
+    }
 }
 ```
 
@@ -264,8 +273,10 @@ application "Terminal-2" {
 ```kdl
 application "Chat" {
     spawn "telegram-desktop"
-    match app-id="org\.telegram\.desktop"
-    exclude title="Notification"
+    window {
+        match app-id="org\.telegram\.desktop"
+        exclude title="Notification"
+    }
 }
 ```
 
@@ -288,10 +299,10 @@ binds {
     // Toggle Telegram with Super+T
     Super+T { spawn "niri-app-hotkey" "toggle" "Telegram"; }
 
-    // Show Firefox with Super+F
+    // Show (and focus) Firefox with Super+F
     Super+F { spawn "niri-app-hotkey" "show" "Firefox"; }
 
-    // Hide current window with Super+H
+    // Hide Firefox if its matching window is focused
     Super+H { spawn "niri-app-hotkey" "hide" "Firefox"; }
 }
 ```

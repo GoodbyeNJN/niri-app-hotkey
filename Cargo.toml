@@ -4,11 +4,17 @@ version = "0.1.2"
 edition = "2024"
 
 [dependencies]
+anyhow = "1.0.104"
 clap = { version = "4.5.53", features = ["derive"] }
 directories = "6.0.0"
 knus = "3.3.1"
 miette = { version = "7.6.0", features = ["fancy"] }
 niri-ipc = { path = "./niri-scratchpad-rs/niri-ipc" }
 regex = "1.12.2"
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.147"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

@@ -1,11 +1,8 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use directories::ProjectDirs;
-use miette::{Result, miette};
-use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Deserialize, Serialize, Subcommand)]
+#[derive(Debug, Subcommand)]
 pub enum Command {
     /// Validate the configuration file.
     Validate,
@@ -13,78 +10,42 @@ pub enum Command {
     /// Launch the specified application.
     Launch {
         #[arg(value_name = "APP_NAME")]
-        application_name: String,
+        app_name: String,
     },
 
     /// Show the specified application window.
     Show {
         #[arg(value_name = "APP_NAME")]
-        application_name: String,
+        app_name: String,
     },
 
     /// Hide the specified application window.
     Hide {
         #[arg(value_name = "APP_NAME")]
-        application_name: String,
+        app_name: String,
     },
 
-    /// Activate the specified application window.
-    Activate {
+    /// Focus the specified application window.
+    Focus {
         #[arg(value_name = "APP_NAME")]
-        application_name: String,
+        app_name: String,
     },
 
-    /// Toggle the specified application window.
+    /// Toggle the specified application.
     Toggle {
         #[arg(value_name = "APP_NAME")]
-        application_name: String,
+        app_name: String,
     },
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, Parser)]
+#[derive(Debug, Parser)]
 #[command(about, long_about = None, version)]
-struct CliInner {
-    #[command(subcommand)]
-    command: Command,
-
-    /// Path to configuration file.
-    /// Defaults to `$XDG_CONFIG_HOME/niri/niri-app-hotkey.kdl`.
-    #[arg(
-        short = 'c',
-        long = "config",
-        value_name = "PATH",
-        verbatim_doc_comment
-    )]
-    config_path: Option<String>,
-}
-
 pub struct Cli {
+    /// Path to configuration file
+    /// Default: `$XDG_CONFIG_HOME/niri/niri-app-hotkey.kdl`
+    #[arg(short, long, value_name = "PATH")]
+    pub config: Option<PathBuf>,
+
+    #[command(subcommand)]
     pub command: Command,
-    pub config_path: PathBuf,
-}
-
-impl Cli {
-    pub fn parse() -> Result<Self> {
-        let cli = CliInner::parse();
-
-        let command = cli.command;
-        let config_path = cli
-            .config_path
-            .map(PathBuf::from)
-            .ok_or(())
-            .or_else(|_| Self::get_default_config_path())?;
-
-        Ok(Self {
-            command,
-            config_path,
-        })
-    }
-
-    fn get_default_config_path() -> Result<PathBuf> {
-        let dirs = ProjectDirs::from_path(PathBuf::from("niri")).ok_or_else(|| {
-            miette!("Could not determine default config path, please provide one via --config")
-        })?;
-
-        Ok(dirs.config_dir().join("niri-app-hotkey.kdl"))
-    }
 }

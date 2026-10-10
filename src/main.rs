@@ -1,38 +1,44 @@
-use miette::Result;
+use clap::Parser;
+use miette::{Result, miette};
 
-mod action;
+mod actions;
 mod cli;
 mod config;
+mod niri;
+
+use actions::*;
+use cli::{Cli, Command};
+pub(crate) use config::{App, Config};
+pub(crate) use niri::Niri;
 
 fn main() -> Result<()> {
-    let cli = cli::Cli::parse()?;
-    let config = config::Config::parse(&cli.config_path)?;
+    let cli = Cli::parse();
 
-    match cli.command {
-        cli::Command::Validate => {
+    match &cli.command {
+        Command::Validate => {
+            let _ = Config::from(cli.config.as_deref())?;
             println!("Configuration file is valid.");
+
+            Ok(())
         }
-        cli::Command::Launch { application_name } => {
-            let application = config.find_application(&application_name)?;
-            action::launch(&application)?;
-        }
-        cli::Command::Show { application_name } => {
-            let application = config.find_application(&application_name)?;
-            action::show(&application)?;
-        }
-        cli::Command::Hide { application_name } => {
-            let application = config.find_application(&application_name)?;
-            action::hide(&application)?;
-        }
-        cli::Command::Activate { application_name } => {
-            let application = config.find_application(&application_name)?;
-            action::activate(&application)?;
-        }
-        cli::Command::Toggle { application_name } => {
-            let application = config.find_application(&application_name)?;
-            action::toggle(&application)?;
+
+        Command::Launch { app_name }
+        | Command::Show { app_name }
+        | Command::Hide { app_name }
+        | Command::Focus { app_name }
+        | Command::Toggle { app_name } => {
+            let config = Config::from(cli.config.as_deref())?;
+            let app = config.find_app_by_name(&app_name)?;
+
+            match &cli.command {
+                Command::Launch { .. } => launch(app),
+                Command::Show { .. } => show(app),
+                Command::Hide { .. } => hide(app),
+                Command::Focus { .. } => focus(app),
+                Command::Toggle { .. } => toggle(app),
+                _ => unreachable!(),
+            }
+            .map_err(|e| miette!("{e:?}"))
         }
     }
-
-    Ok(())
 }
