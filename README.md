@@ -34,7 +34,7 @@ This AUR package includes the necessary changes from PR #2997, ensuring compatib
 
 - **Launch applications** - Start applications using configured spawn commands
 - **Window management** - Show, hide, focus, or intelligently toggle application windows
-- **Flexible matching** - Match windows by application ID and window title (compatible with Niri's window rules)
+- **Flexible matching** - Match windows by application ID, title, executable path, or command line
 - **Window selection** - Select a specific window by index and configurable sort order when multiple windows match
 - **Exclusion rules** - Exclude specific windows from matching criteria
 - **Configuration-based** - Easy configuration using KDL configuration language
@@ -176,7 +176,7 @@ spawn-sh "DISPLAY=:1 some-app"
 
 ### Match and Exclude Rules
 
-Window rules are declared inside a `window` block. The `match` directives identify candidate windows, and `exclude` directives remove candidates from consideration. The matching behavior for `app-id` and `title` follows the same logic as [Niri's window rules](https://yalter.github.io/niri/Configuration%3A-Window-Rules.html):
+Window rules are declared inside a `window` block. The `match` directives identify candidate windows, and `exclude` directives remove candidates from consideration. Each matcher property accepts a regular expression. The matching behavior for `app-id` and `title` follows the same logic as [Niri's window rules](https://yalter.github.io/niri/Configuration%3A-Window-Rules.html):
 
 - A window must match **at least one** `match` directive (OR logic across directives)
 - Within one directive, all specified properties must match (AND logic)
@@ -184,12 +184,16 @@ Window rules are declared inside a `window` block. The `match` directives identi
 
 Supported matchers:
 
-| Property | Type  | Description                    | Notes        |
-| -------- | ----- | ------------------------------ | ------------ |
-| `app-id` | Regex | Match windows by application ID | Same as Niri |
-| `title`  | Regex | Match windows by window title   | Same as Niri |
+| Property  | Type  | Description                                      | Notes                  |
+| --------- | ----- | ------------------------------------------------ | ---------------------- |
+| `app-id`  | Regex | Match windows by application ID                 | Same as Niri           |
+| `title`   | Regex | Match windows by window title                   | Same as Niri           |
+| `program` | Regex | Match by the process executable path            | Read from `/proc`      |
+| `cmdline` | Regex | Match by the process command line                | Read from `/proc`      |
 
-Both `app-id` and `title` support regular expressions. You can find the app-id and title of a window using:
+`program` and `cmdline` are obtained from the window process's `/proc/<pid>/exe` and `/proc/<pid>/cmdline` entries. They may be unavailable, for example if the process has exited or access is restricted. The command line is represented as arguments joined with spaces, so it may not preserve the original quoting or argument boundaries.
+
+You can find the app-id and title of a window using:
 
 ```bash
 niri msg pick-window
@@ -205,7 +209,7 @@ Each action operates on one matching window. If more than one window matches, sp
 2. It sorts the candidates by the keys listed in `order-by`, in the listed priority order.
 3. It selects the window at the specified zero-based `index`.
 
-If there is only one matching window, it is selected automatically. If multiple windows match and no `select` is configured, the command reports an error. Supported `order-by` keys are `id`, `title`, `app-id`, `pid`, and `workspace-id`. With no `order-by`, candidates use ascending Niri window ID order.
+If there is only one matching window, it is selected automatically. If multiple windows match and no `select` is configured, the command reports an error. Supported `order-by` keys are `id`, `title`, `app-id`, `workspace-id`, `pid`, `program`, and `cmdline`. With no `order-by`, candidates use ascending Niri window ID order.
 
 ```kdl
 application "Firefox-Primary" {
@@ -276,6 +280,20 @@ application "Chat" {
     window {
         match app-id="org\.telegram\.desktop"
         exclude title="Notification"
+    }
+}
+```
+
+### Example 5: Match by Process
+
+```kdl
+application "Development Browser" {
+    spawn "firefox"
+    window {
+        match program=".*firefox$" cmdline=".*--profile.*work.*"
+        select index=0 {
+            order-by program
+        }
     }
 }
 ```

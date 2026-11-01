@@ -4,11 +4,13 @@ use miette::{Result, miette};
 mod actions;
 mod cli;
 mod config;
+mod models;
 mod niri;
 
 use actions::*;
 use cli::{Cli, Command};
 pub(crate) use config::{App, Config};
+pub(crate) use models::Window;
 pub(crate) use niri::Niri;
 
 fn main() -> Result<()> {

@@ -1,6 +1,8 @@
 use anyhow::{Error, Result, bail};
 use niri_ipc::socket::Socket;
-use niri_ipc::{Action, Request, Response, Window, Workspace, WorkspaceReferenceArg};
+use niri_ipc::{Action, Request, Response, Workspace, WorkspaceReferenceArg};
+
+use crate::Window;
 
 pub struct Niri {
     socket: Socket,
@@ -21,7 +23,7 @@ impl Niri {
         };
         windows.sort_by_key(|window| window.id);
 
-        Ok(windows)
+        Ok(windows.into_iter().map(|w| w.into()).collect())
     }
 
     pub fn get_workspaces(&mut self) -> Result<Vec<Workspace>> {

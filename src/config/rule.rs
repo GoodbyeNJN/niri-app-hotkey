@@ -1,7 +1,7 @@
 use knus::{Decode, DecodeScalar};
-use niri_ipc::Window;
 
 use super::regex::Regex;
+use crate::Window;
 
 #[derive(Clone, Debug, Decode)]
 pub struct RegexMatchRule {
@@ -10,6 +10,12 @@ pub struct RegexMatchRule {
 
     #[knus(property, str)]
     pub title: Option<Regex>,
+
+    #[knus(property, str)]
+    pub program: Option<Regex>,
+
+    #[knus(property, str)]
+    pub cmdline: Option<Regex>,
 }
 
 impl RegexMatchRule {
@@ -32,6 +38,24 @@ impl RegexMatchRule {
             }
         }
 
+        if let Some(program_re) = &self.program {
+            let Some(program) = &window.program else {
+                return false;
+            };
+            if !program_re.is_match(program) {
+                return false;
+            }
+        }
+
+        if let Some(cmdline_re) = &self.cmdline {
+            let Some(cmdline) = &window.cmdline else {
+                return false;
+            };
+            if !cmdline_re.is_match(cmdline) {
+                return false;
+            }
+        }
+
         true
     }
 }
@@ -41,8 +65,10 @@ pub enum OrderByKey {
     Id,
     Title,
     AppId,
-    Pid,
     WorkspaceId,
+    Pid,
+    Program,
+    Cmdline,
 }
 
 #[derive(Clone, Debug, Decode)]
@@ -74,6 +100,8 @@ impl SelectRule {
                 OrderByKey::Title => ordered_windows.sort_by_key(|w| &w.title),
                 OrderByKey::Pid => ordered_windows.sort_by_key(|w| &w.pid),
                 OrderByKey::WorkspaceId => ordered_windows.sort_by_key(|w| &w.workspace_id),
+                OrderByKey::Program => ordered_windows.sort_by_key(|w| &w.program),
+                OrderByKey::Cmdline => ordered_windows.sort_by_key(|w| &w.cmdline),
             }
         }
 

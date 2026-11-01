@@ -1,7 +1,7 @@
 use anyhow::{Ok, Result, anyhow, bail};
-use niri_ipc::{Window, Workspace};
+use niri_ipc::Workspace;
 
-use crate::App;
+use crate::{App, Window};
 
 pub(super) fn should_match_window_and_workspace(app: &App) -> bool {
     app.window.is_some()
